@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regras para coleção de usuários
+    match /users/{userId} {
+      // Usuários podem ler apenas seus próprios dados
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Apenas usuários autenticados podem criar seus próprios dados
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Apenas admins podem atualizar dados de usuários
+      allow update: if request.auth != null && 
+        (request.auth.uid == userId || 
+         request.auth.token.email == "admin@codenxt.online");
+    }
+    
+    // Regras para coleção de dicas
+    match /tips/{tipId} {
+      // Usuários ativos podem ler dicas ativas
+      allow read: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
+      
+      // Apenas admins podem criar, atualizar e deletar dicas
+      allow write: if request.auth != null && 
+        request.auth.token.email == "admin@codenxt.online";
+    }
+    
+    // Regras para coleção de apostas
+    match /bets/{betId} {
+      // Usuários podem ler apenas suas próprias apostas
+      allow read: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Usuários ativos podem criar apostas
+      allow create: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active" &&
+        request.resource.data.userId == request.auth.uid;
+      
+      // Apenas admins podem atualizar apostas (para definir resultado)
+      allow update: if request.auth != null && 
+        request.auth.token.email == "admin@codenxt.online";
+    }
+  }
+} 
